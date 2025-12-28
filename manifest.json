@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "Descargador de JSON Personal",
+  "version": "1.0",
+  "description": "Descarga automática de ficheros JSON de una web específica.",
+  
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+    }
+  },
+
+  "background": {
+    "service_worker": "background.js"
+  },
+  
+  "permissions": [
+    "downloads" // Solo necesitamos permiso para descargar
+  ],
+  
+  "host_permissions": [
+    "https://www.basquetcatala.cat/*", // Para inyectar el botón y leer la ID
+    "https://msstats.optimalwayconsulting.com/*" // Para hacer la petición fetch
+  ],
+  
+  "content_scripts": [ // <-- NUEVO BLOQUE: Inyecta el script que crea el botón
+    {
+      "matches": [
+        "https://www.basquetcatala.cat/estadistiques/*" // Solo en páginas de estadísticas
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle" // Asegura que se ejecuta después de cargar el DOM
+    }
+  ]
+
+}
