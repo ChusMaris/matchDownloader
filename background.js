@@ -12,7 +12,7 @@ function blobToDataURL(blob) {
 
 // ELIMINAMOS EL WEB REQUEST LISTENER. Ahora escuchamos mensajes.
 chrome.runtime.onMessage.addListener(
-    (request, sender, sendResponse) => {
+    async (request, sender, sendResponse) => {
         
         // Solo procedemos si el content script nos pide iniciar la descarga y nos pasa la URL
         if (request.action === "startDownload" && request.url) {
@@ -58,6 +58,59 @@ chrome.runtime.onMessage.addListener(
             
             // Indicamos que sendResponse será llamado de forma asíncrona.
             return true; 
+        } else if (request.action === "startMultipleDownloads" && request.urls && Array.isArray(request.urls)) {
+            console.log("Mensaje de botón recibido. Descargando múltiples archivos de:", request.urls);
+
+            const results = [];
+            for (const url of request.urls) {
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        throw new Error(`Respuesta de red no satisfactoria para ${url}, estado: ${response.status}`);
+                    }
+                    const data = await response.json();
+                    
+                    const jsonString = JSON.stringify(data, null, 2); 
+                    const blob = new Blob([jsonString], { type: 'application/json' });
+                    const dataUrl = await blobToDataURL(blob); 
+                    
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+                    let filenamePrefix = "datos";
+                    if (url.includes("getJsonWithMatchStats")) {
+                        filenamePrefix = "J_P_0_0.json";
+                    } else if (url.includes("getJsonWithMatchMoves")) {
+                        filenamePrefix = "J_P_Moves.json";
+                    }
+                    const suggestedFilename = `${filenamePrefix}`;
+                    
+                    await new Promise((resolve, reject) => {
+                        chrome.downloads.download({
+                            url: dataUrl, 
+                            filename: suggestedFilename,
+                            saveAs: true 
+                        }, (downloadId) => {
+                            if (chrome.runtime.lastError) {
+                                console.error(`Error al iniciar la descarga de ${url}:`, chrome.runtime.lastError.message);
+                                reject(new Error(chrome.runtime.lastError.message));
+                            } else {
+                                console.log(`Diálogo de Guardar como... abierto para ${url}. ID: ${downloadId}`);
+                                resolve();
+                            }
+                        });
+                    });
+                    results.push({ success: true, url: url });
+
+                } catch (error) {
+                    console.error(`Error al procesar o descargar JSON de ${url}:`, error);
+                    results.push({ success: false, url: url, error: error.message });
+                    // If one download fails, we can choose to stop or continue.
+                    // For now, let's continue to attempt other downloads.
+                }
+            }
+            const allSuccess = results.every(res => res.success);
+            sendResponse({ success: allSuccess, results: results });
+            
+            return true;
         }
     }
 );

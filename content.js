@@ -1,12 +1,9 @@
 // content.js (VERSIÓN CON INTEGRACIÓN VISUAL Y ALINEACIÓN FINAL)
 
-// Función auxiliar para obtener la URL de descarga (sin cambios)
-function getApiUrl(matchId) {
-    return `https://msstats.optimalwayconsulting.com/v1/fcbq/getJsonWithMatchStats/${matchId}?currentSeason=true`;
-}
+
 
 // Función auxiliar para crear el elemento y manejar la lógica de descarga
-function createDownloadLink(API_URL) {
+function createDownloadLink(matchId) {
     const downloadLink = document.createElement('a');
     
     // Contenido: Usamos el icono de flecha gruesa y larga (↓)
@@ -45,7 +42,12 @@ function createDownloadLink(API_URL) {
     downloadLink.addEventListener('click', () => {
         downloadLink.innerHTML = '...'; 
         
-        chrome.runtime.sendMessage({ action: "startDownload", url: API_URL }, (response) => {
+        const urlsToDownload = [
+            `https://msstats.optimalwayconsulting.com/v1/fcbq/getJsonWithMatchStats/${matchId}?currentSeason=true`,
+            `https://msstats.optimalwayconsulting.com/v1/fcbq/getJsonWithMatchMoves/${matchId}?currentSeason=true`
+        ];
+
+        chrome.runtime.sendMessage({ action: "startMultipleDownloads", urls: urlsToDownload }, (response) => {
              if (chrome.runtime.lastError || !response || !response.success) {
                  downloadLink.innerHTML = '<span style="color: red;">X</span>'; 
              } else {
@@ -63,8 +65,7 @@ function startInjection() {
     const matchId = parts.pop() || parts.pop(); 
     if (!matchId || matchId.length < 10) return;
 
-    const API_URL = getApiUrl(matchId);
-    const downloadLink = createDownloadLink(API_URL);
+    const downloadLink = createDownloadLink(matchId);
 
     // BÚSQUEDA DEL CONTENEDOR DE ICONOS SOCIALES (ID que funciona)
     const TARGET_CONTAINER_SELECTOR = '#brand-right'; 
